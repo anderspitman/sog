@@ -7,6 +7,7 @@ import (
         "time"
         "os"
         "io"
+        "io/ioutil"
         "flag"
 )
 
@@ -16,6 +17,20 @@ func main() {
         flag.Parse()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
+
+                if r.Method != "POST" {
+                        w.WriteHeader(http.StatusMethodNotAllowed)
+                        w.Write([]byte("Request must be a POST"))
+                        return
+                }
+
+                var maxReportBytes int64 = 10*1024;
+                body, err := ioutil.ReadAll(io.LimitReader(r.Body, maxReportBytes))
+                if err != nil || len(body) == 0 {
+                        w.WriteHeader(http.StatusBadRequest)
+                        w.Write([]byte("Must provide POST body for report"))
+                        return
+                }
 
                 w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 
@@ -36,16 +51,15 @@ func main() {
                 }
 
 
-                f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0644)
+                err = ioutil.WriteFile(filename, body, 0644)
                 if err != nil {
-                        log.Fatal(err)
+                        w.WriteHeader(http.StatusInternalServerError)
+                        w.Write([]byte("Failed to write file"))
+                        return
                 }
-
-                defer f.Close()
-
-                io.Copy(f, r.Body)
         }
 
         log.Println("Starting up")
-        log.Fatal(http.ListenAndServe(":"+*port, http.HandlerFunc(handler)));
+        http.HandleFunc("/eGJvfRfF300fGpxnB52LmFpD9IIJPzYb", handler);
+        log.Fatal(http.ListenAndServe(":"+*port, nil));
 }
